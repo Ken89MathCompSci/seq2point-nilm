@@ -40,8 +40,12 @@ class Trainer():
         self.__patience = patience
         self.__min_delta = min_delta
         self.__verbose = verbose
-        self.__loss = "mse"
-        self.__metrics = ["mse", "msle", "mae"]
+        self.__loss = tf.keras.losses.MeanSquaredError()
+        self.__metrics = [
+            tf.keras.metrics.MeanSquaredError(name='mse'),
+            tf.keras.metrics.MeanSquaredLogarithmicError(name='msle'),
+            tf.keras.metrics.MeanAbsoluteError(name='mae')
+        ]
         self.__learning_rate = 0.001
         self.__beta_1=0.9
         self.__beta_2=0.999
@@ -53,7 +57,7 @@ class Trainer():
         self.__max_chunk_size = 5 * 10 ** 2
         self.__validation_frequency = validation_frequency
         self.__ram_threshold=5*10**5
-        self.__skip_rows_train=10000000
+        self.__skip_rows_train=0
         self.__validation_steps=100
         self.__skip_rows_val = 0
 

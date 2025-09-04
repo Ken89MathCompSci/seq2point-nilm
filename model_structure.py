@@ -43,7 +43,10 @@ def save_model(model, network_type, algorithm, appliance, save_model_dir):
     if not os.path.exists (model_path):
         open((model_path), 'a').close()
 
-    model.save(model_path)
+    # Save in Keras 3 format (.keras extension)
+    if not model_path.endswith('.keras'):
+        model_path = model_path.replace('.h5', '.keras')
+    model.save(model_path, save_format='keras')
 
 def load_model(model, network_type, algorithm, appliance, saved_model_dir):
 
