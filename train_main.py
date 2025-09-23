@@ -22,7 +22,7 @@ parser.add_argument("--validation_directory", type=str, default=validation_direc
 arguments = parser.parse_args()
 
 # Need to provide the trained model
-save_model_dir = "saved_models/" + arguments.appliance_name + "_" + arguments.network_type + "_model.h5"
+save_model_dir = "saved_models/" + arguments.appliance_name + "_" + arguments.network_type + "_model.keras"
 
 trainer = Trainer(arguments.appliance_name, arguments.batch_size, arguments.crop, arguments.network_type,
                   arguments.training_directory, arguments.validation_directory,
