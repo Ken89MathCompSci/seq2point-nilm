@@ -1,5 +1,6 @@
 import numpy as np 
 import pandas as pd 
+import tensorflow as tf
 
 # batch_size: the number of rows fed into the network at once.
 # crop: the number of rows in the data set to be used in total.
@@ -52,19 +53,36 @@ class TrainSlidingWindowGenerator():
 
     def check_if_chunking(self):
 
-        """Count the number of rows in the dataset and determine whether this is larger than the chunking 
+        """Count the number of rows in the dataset and determine whether this is larger than the chunking
         threshold or not. """
 
         # Loads the file and counts the number of rows it contains.
         print("Importing training file...")
-        chunks = pd.read_csv(self.__file_name, 
-                            header=0, 
-                            nrows=self.__crop, 
-                            skiprows=self.__skip_rows)
-        print("Counting number of rows...")
-        self.total_size = len(chunks)
-        del chunks
-        print("Done.")
+
+        # First, get the total number of rows in the file without skiprows
+        try:
+            total_rows_in_file = sum(1 for _ in open(self.__file_name)) - 1  # -1 for header if present, but we use header=None
+        except:
+            total_rows_in_file = 0
+
+        # Adjust skip_rows if it's larger than available data
+        effective_skip_rows = self.__skip_rows if self.__skip_rows < total_rows_in_file else 0
+        if self.__skip_rows > 0 and effective_skip_rows == 0:
+            print(f"Warning: skip_rows ({self.__skip_rows}) is larger than file size ({total_rows_in_file}), using skip_rows=0")
+
+        # Always use header=None since the CSV files don't have headers
+        try:
+            chunks = pd.read_csv(self.__file_name,
+                                header=None,
+                                nrows=self.__crop,
+                                skiprows=effective_skip_rows if effective_skip_rows > 0 else None)
+            print("Counting number of rows...")
+            self.total_size = len(chunks)
+            del chunks
+            print("Done.")
+        except pd.errors.EmptyDataError:
+            print("Warning: No data found after skipping rows, using empty dataset")
+            self.total_size = 0
 
         print("The dataset contains ", self.total_size, " rows")
 
@@ -73,25 +91,32 @@ class TrainSlidingWindowGenerator():
             print("There is too much data to load into memory, so it will be loaded in chunks. Please note that this may result in decreased training times.")
     
 
-    def load_dataset(self):
-
-        """Yields pairs of features and targets that will be used directly by a neural network for training.
-
-        Yields:
-        input_data (numpy.array): A 1D array of size batch_size containing features of a single input. 
-        output_data (numpy.array): A 1D array of size batch_size containing the target values corresponding to 
-        each feature set.
-
-        """
-
+    def _get_batch_generator(self):
+        """Generator function that yields batches of data."""
         if self.total_size == 0:
             self.check_if_chunking()
 
         # If the data can be loaded in one go, don't skip any rows.
         if (self.total_size <= self.__ram_threshold):
-
             # Returns an array of the content from the CSV file.
-            data_array = np.array(pd.read_csv(self.__file_name, nrows=self.__crop, skiprows=self.__skip_rows, header=0))
+            # First, get the total number of rows in the file
+            try:
+                total_rows_in_file = sum(1 for _ in open(self.__file_name))
+            except:
+                total_rows_in_file = 0
+
+            # Adjust skip_rows if it's larger than available data
+            effective_skip_rows = self.__skip_rows if self.__skip_rows < total_rows_in_file else 0
+
+            # Always use header=None since the CSV files don't have headers
+            try:
+                data_array = np.array(pd.read_csv(self.__file_name,
+                                                 nrows=self.__crop,
+                                                 header=None,
+                                                 skiprows=effective_skip_rows if effective_skip_rows > 0 else None))
+            except pd.errors.EmptyDataError:
+                # If no data after skipping, create empty array
+                data_array = np.empty((0, 2))
             inputs = data_array[:, 0]
             outputs = data_array[:, 1]
 
@@ -109,11 +134,15 @@ class TrainSlidingWindowGenerator():
                     splice = indicies[start_index : start_index + self.__batch_size]
                     input_data = np.array([inputs[index : index + 2 * self.__offset + 1] for index in splice])
                     output_data = outputs[splice + self.__offset].reshape(-1, 1)
-
+                    
+                    # Add channel dimension for CNN input
+                    input_data = input_data.reshape(-1, 2 * self.__offset + 1, 1).astype(np.float32)
+                    output_data = output_data.astype(np.float32)
+                    
                     yield input_data, output_data
                     
         # Skip rows where needed to allow data to be loaded properly when there is not enough memory.
-        if (self.total_size >= self.__ram_threshold):
+        else:  # Fixed the condition here
             number_of_chunks = np.arange(self.total_size / self.__chunk_size)
             if self.__shuffle:
                 np.random.shuffle(number_of_chunks)
@@ -133,13 +162,41 @@ class TrainSlidingWindowGenerator():
                 if self.__shuffle:
                     np.random.shuffle(indicies)
 
-            while True:
-                for start_index in range(0, maximum_batch_size, self.__batch_size):
-                    splice = indicies[start_index : start_index + self.__batch_size]
-                    input_data = np.array([inputs[index : index + 2 * self.__offset + 1] for index in splice])
-                    output_data = outputs[splice + self.__offset].reshape(-1, 1)
+                while True:
+                    for start_index in range(0, maximum_batch_size, self.__batch_size):
+                        splice = indicies[start_index : start_index + self.__batch_size]
+                        input_data = np.array([inputs[index : index + 2 * self.__offset + 1] for index in splice])
+                        output_data = outputs[splice + self.__offset].reshape(-1, 1)
+                        
+                        # Add channel dimension for CNN input
+                        input_data = input_data.reshape(-1, 2 * self.__offset + 1, 1).astype(np.float32)
+                        output_data = output_data.astype(np.float32)
+                        
+                        yield input_data, output_data
+    
+    def load_dataset(self):
+        """Returns a TensorFlow dataset that generates batches.
 
-                    yield input_data, output_data
+        Returns:
+        tf.data.Dataset: A dataset object that yields pairs of features and targets.
+        """
+        # Define the window size
+        window_size = 2 * self.__offset + 1
+
+        # Use TensorFlow's from_generator to create a dataset
+        # Use None for batch size since it can vary
+        dataset = tf.data.Dataset.from_generator(
+            self._get_batch_generator,
+            output_signature=(
+                tf.TensorSpec(shape=(None, window_size, 1), dtype=tf.float32),
+                tf.TensorSpec(shape=(None, 1), dtype=tf.float32)
+            )
+        )
+
+        # Add prefetch for better performance
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
+
+        return dataset
                     
 class TestSlidingWindowGenerator(object):
 
