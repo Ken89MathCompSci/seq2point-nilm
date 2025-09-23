@@ -84,7 +84,7 @@ def evaluate_model(appliance, network_type, algorithm, test_file, model_dir, thr
 
     # Create and load model
     model = create_model(599)  # Default input window length
-    model_filename = f"{appliance}_{network_type}_model.keras"
+    model_filename = f"{appliance}_{network_type}_model.h5"
     model_path = os.path.join(model_dir, model_filename)
     model = load_model(model, network_type, algorithm, appliance, model_path)
 
