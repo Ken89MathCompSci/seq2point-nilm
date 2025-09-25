@@ -129,29 +129,29 @@ def evaluate_model(appliance, network_type, algorithm, test_file, model_dir, thr
     print(f"EVALUATION RESULTS FOR {appliance.upper()}")
     print("="*50)
 
-    print("CONFUSION MATRIX (Threshold = {threshold}W):")
+    print(f"CONFUSION MATRIX (Threshold = {threshold}W):")
     print("Predicted | Off (0)    On (1)")
     print("Actual   |-----------------")
     print(f"Off (0)  | {metrics['True_Negatives']:6d}    {metrics['False_Positives']:6d}")
     print(f"On (1)   | {metrics['False_Negatives']:6d}    {metrics['True_Positives']:6d}")
     print()
 
-    print("CLASSIFICATION METRICS (Threshold = {threshold}W):")
-    print(".4f")
-    print(".4f")
-    print(".4f")
-    print(".4f")
+    print(f"CLASSIFICATION METRICS (Threshold = {threshold}W):")
+    print(f"Accuracy:  {metrics['Accuracy']:.4f}")
+    print(f"Precision: {metrics['Precision']:.4f}")
+    print(f"Recall:    {metrics['Recall']:.4f}")
+    print(f"F1-Score:  {metrics['F1-Score']:.4f}")
 
     print("\nREGRESSION METRICS:")
-    print(".4f")
-    print(".4f")
-    print(".4f")
-    print(".2f")
-    print(".4f")
+    print(f"MAE:       {metrics['MAE']:.4f}")
+    print(f"MSE:       {metrics['MSE']:.4f}")
+    print(f"RMSE:      {metrics['RMSE']:.4f}")
+    print(f"SAE:       {metrics['SAE']:.2f}")
+    print(f"MAPE:      {metrics['MAPE']:.4f}")
 
     print("\nADDITIONAL METRICS:")
-    print(".2f")
-    print(".2f")
+    print(f"Mean True Power: {metrics['Mean_True_Power']:.2f}")
+    print(f"Threshold:       {threshold:.2f}W")
 
     return metrics
 
