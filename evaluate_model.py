@@ -43,6 +43,10 @@ def calculate_nilm_metrics(predictions, ground_truth, threshold=10):
     # Calculate SAE (Signal Aggregate Error) - total absolute error
     sae = np.sum(np.abs(predictions - ground_truth))
 
+    # Calculate normalized SAE (relative to total true energy)
+    total_true_energy = np.sum(ground_truth)
+    sae_normalized = sae / (total_true_energy + 1e-6)  # Avoid division by zero
+
     # Calculate relative error metrics
     mean_true = np.mean(ground_truth)
     mape = np.mean(np.abs((predictions - ground_truth) / (ground_truth + 1e-6))) * 100  # Avoid division by zero
@@ -61,6 +65,7 @@ def calculate_nilm_metrics(predictions, ground_truth, threshold=10):
         'MSE': mse,
         'RMSE': rmse,
         'SAE': sae,
+        'SAE_Normalized': sae_normalized,
         'MAPE': mape,
         'Mean_True_Power': mean_true
     }
@@ -143,11 +148,12 @@ def evaluate_model(appliance, network_type, algorithm, test_file, model_dir, thr
     print(f"F1-Score:  {metrics['F1-Score']:.4f}")
 
     print("\nREGRESSION METRICS:")
-    print(f"MAE:       {metrics['MAE']:.4f}")
-    print(f"MSE:       {metrics['MSE']:.4f}")
-    print(f"RMSE:      {metrics['RMSE']:.4f}")
-    print(f"SAE:       {metrics['SAE']:.2f}")
-    print(f"MAPE:      {metrics['MAPE']:.4f}")
+    print(f"MAE:            {metrics['MAE']:.4f}")
+    print(f"MSE:            {metrics['MSE']:.4f}")
+    print(f"RMSE:           {metrics['RMSE']:.4f}")
+    print(f"SAE:            {metrics['SAE']:.2f}")
+    print(f"SAE Normalized: {metrics['SAE_Normalized']:.4f}")
+    print(f"MAPE:           {metrics['MAPE']:.4f}")
 
     print("\nADDITIONAL METRICS:")
     print(f"Mean True Power: {metrics['Mean_True_Power']:.2f}")
